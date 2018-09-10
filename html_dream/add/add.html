@@ -3,28 +3,39 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
 <title>无标题文档</title>
-<style>
-             
-        </style>
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script>
+	 var autowrite=function(){
+		var myDiv=document.getElementById("d1");
+		myDiv.innerText="456";
+		var i=document.getElementById("d2").removeAttribute("hidden") ;
+	}
+</script>
 </head>
 <body>
 <div align="center"><img src="add.png" width="898" height="521" />
   <table width="900" height="190" border="1">
+      <tr>
+        <td width="189" rowspan="5"> 
+          <div align="center">
+            <button onclick="autowrite()">位置选择</button>
+        </div></td>
+        <td width="160" rowspan="2"><div align="center">旧修理</div></td>
+        <td width="529"> <label id="d1"></label>&nbsp;</td>
+      </tr>
     <tr>
-      <td width="93" rowspan="4">&nbsp;</td>
-      <td>&nbsp;</td>
+      <td id="d2" hidden="hidden"><label> 567</label>&nbsp;</td>
+    </tr>
+    <tr>
+      <td ><div align="center">ms</div></td>
+      <td >&nbsp;</td>
+    </tr>
+    <tr>
+      <td><div align="center">mda</div></td>
       <td>&nbsp;</td>
     </tr>
     <tr>
-      <td width="79">&nbsp;</td>
-      <td width="306">&nbsp;</td>
-    </tr>
-    <tr>
-      <td>&nbsp;</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>&nbsp;</td>
+      <td><div align="center">vstc</div></td>
       <td>&nbsp;</td>
     </tr>
   </table>
