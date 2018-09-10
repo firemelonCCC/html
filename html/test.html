@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UFT-8">
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="FileSaver.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.8/esri/css/main.css">
+    <script src="dojo.js"></script>
+
+    <!--做图控制（只能在特定图层做图）
+    图层管理：在机号树下以类别命名图层
+    图层管理：读取文件时以类别定义id
+    -->
+
+    <style>
+        html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      font-family: verdana;
+    }
+
+    #topbar {
+      background: #fff;
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      padding: 10px;
+    }
+
+    .action-button {
+      font-size: 16px;
+      background-color: transparent;
+      border: 1px solid #D3D3D3;
+      color: #6e6e6e;
+      height: 32px;
+      width: 32px;
+      text-align: center;
+      box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-button:hover,
+    .action-button:focus {
+      background: #0079c1;
+      color: #e4e4e4;
+    }
+
+    .active {
+      background: #0079c1;
+      color: #e4e4e4;
+    }
+	</style>
+</head>
+
+<body>
+
+
+    <div>
+        <div>
+            <input type="file" id="files" style="display:none" multiple="multiple" onchange="fileimport();" />
+            <input type="button" id="import" value="导入" />
+
+            <input type="button" id="export" value="导出" />
+        </div>
+    </div>
+    <script>
+        var txtdata;
+        var i = 0;
+        
+        var DLayer="";
+        var VstcLayer="";
+        var MdaLayer="";
+        var MsLayer="";
+
+        function fileimport() {
+            var tempFile = "";
+            
+                        require([
+                "esri/views/MapView",
+                "esri/Map",
+                "esri/widgets/Sketch/SketchViewModel",
+                "esri/Graphic",
+                "esri/layers/GraphicsLayer",
+                "esri/layers/GroupLayer",
+                "esri/widgets/LayerList",
+                "esri/geometry/geometryEngine",
+                "dojo/domReady!"
+            ], function(
+                MapView, Map,
+                SketchViewModel, Graphic, GraphicsLayer, GroupLayer, LayerList, geometryEngine
+            ) {
+                let editGraphic;
+                //debugger;
+                var reportid;
+                var graphic = new Graphic();
+                var fillSymbol = {
+                    type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                    color: [255, 0, 0, 0],
+                    outline: { // autocasts as new SimpleLineSymbol()
+                        color: [255, 0, 0, 1],
+                        width: 1
+                    }
+                };
+                var lineSymbol = {
+                    type: "simple-line", // autocasts as SimpleLineSymbol()
+                    color: [255, 0, 0],
+                    width: 1
+                };
+
+                const tempGraphicsLayer = new GraphicsLayer({
+                    id: "1",
+                    title: "腐蚀"
+                });
+                const tempGraphicsLayer1 = new GraphicsLayer({
+                    id: "2",
+                    title: "损伤"
+                });
+                const tempGraphicsLayer2 = new GraphicsLayer({
+                    id: "3",
+                    title: "相交区域"
+                });
+                var demographicGroupLayer = new GroupLayer({
+                    title: "All",
+                    visible: true,
+                    visibilityMode: "independent",
+                    layers: [tempGraphicsLayer2, tempGraphicsLayer1, tempGraphicsLayer],//, layer
+                    opacity: 0.75
+                });
+                const map = new Map({
+                    layers: [demographicGroupLayer],
+                    spatialReference: {
+                        wkid: 4326
+                    }
+                });
+                var view = new MapView({
+                    container: "viewDiv",
+                    map: map,
+                    center: [0.049, 0.485],
+                    zoom: 1
+                });
+                while (i < document.getElementById("files").files.length) {
+                    var selectedFile = document.getElementById("files").files[i]; //获取读取的File对象        
+                    tempFile = selectedFile;
+                    var name = selectedFile.name; //读取选中文件的文件名
+                    var size = selectedFile.size; //读取选中文件的大小
+                    console.log("文件名:" + name + "大小：" + size);       
+                    readtxt(selectedFile,map);
+                }                            
+                view.when(function() {
+                    var layerList = new LayerList({
+                        view: view,
+                    });
+                    layerList.on("trigger-action", function(event) { //被触发
+
+                    });
+                    view.ui.add(layerList, "top-left");
+                    const sketchViewModel = new SketchViewModel({
+                        view: view,
+                        layer: tempGraphicsLayer2,
+                        pointSymbol: {
+                            type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                            style: "square",
+                            color: "#8A2BE2",
+                            size: "16px",
+                            outline: { // autocasts as new SimpleLineSymbol()
+                                color: [255, 255, 255],
+                                width: 3
+                            }
+                        },
+                        polylineSymbol: {
+                            type: "simple-line", // autocasts as new SimpleLineSymbol()
+                            color: "#8A2BE2",
+                            width: "4",
+                            style: "dash"
+                        },
+                        polygonSymbol: {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: "rgba(138,43,226, 0.8)",
+                            style: "solid",
+                            outline: {
+                                color: "white",
+                                width: 1
+                            }
+                        }
+                    });
+
+                    setUpClickHandler();
+
+                    // Listen to create-complete event to add a newly created graphic to view
+                    sketchViewModel.on("create-complete", addGraphic);
+                    sketchViewModel.on("update-complete", updateGraphic);
+                    sketchViewModel.on("update-cancel", updateGraphic);
+
+                    //*************************************************************
+                    // called when sketchViewModel's create-complete event is fired.
+                    //*************************************************************
+                    function addGraphic(event) {
+                        var symbol1;
+                        if (event.geometry.type == "polygon" && tempGraphicsLayer.visible == true) {
+                            symbol1 = {
+                                type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                                color: [51, 51, 204, 0.9],
+                                style: "solid"
+                            }
+                        } else {
+                            symbol1 = sketchViewModel.graphic.symbol;
+                        }
+                        var graphic = new Graphic({
+                            geometry: event.geometry,
+                            symbol: symbol1
+                        });
+                        reportid = prompt("输入单号", "");
+                        if (reportid != null || reportid == "") {
+                            if (tempGraphicsLayer.visible == true) {
+                                graphic.setAttribute("aid", reportid);
+                                graphic.setAttribute("name", "腐蚀");
+                                if (tempGraphicsLayer.graphics.length > 0) {
+                                    tempGraphicsLayer.add(graphic);
+                                    tempGraphicsLayer2.addMany(addAttribute(graphic, tempGraphicsLayer1));
+                                } else
+                                    tempGraphicsLayer.add(graphic);
+                            } else {
+                                graphic.setAttribute("aid", reportid);
+                                graphic.setAttribute("name", "损伤");
+                                if (tempGraphicsLayer.graphics.length > 0) {
+                                    tempGraphicsLayer1.add(graphic);
+                                    tempGraphicsLayer2.addMany(addAttribute(graphic, tempGraphicsLayer));
+                                } else
+                                    tempGraphicsLayer1.add(graphic);
+                            }
+                        }
+                        
+                        var onePolygon="";
+                        for(var i=0;i<tempGraphicsLayer.graphics.items.length;i++){
+                            if(tempGraphicsLayer.graphics.items[i].geometry.type=="polygon"){
+                                var pointXy="";
+                                var ringCount="";
+                                for(var j =0;j<tempGraphicsLayer.graphics.items[i].geometry.rings.length;j++){
+                                    pointXy = gpoint(tempGraphicsLayer.graphics.items[i].geometry.rings[j]);
+                                    ringCount = grings(tempGraphicsLayer.graphics.items[i].geometry.rings,pointXy);  
+                                }
+
+                                if(i!=tempGraphicsLayer.graphics.length-1)
+                                    onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"Polygon","coordinates":['+ringCount+"]}},";
+                                else
+                                    onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"Polygon","coordinates":['+ringCount+"]}}";
+                            }
+                            if(tempGraphicsLayer.graphics.items[i].geometry.type=="polyline"){
+                                var pointXy = gpoint(tempGraphicsLayer.graphics.items[i].geometry.paths[0]);
+                                var ringCount = grings(tempGraphicsLayer.graphics.items[i].geometry.paths,pointXy);
+                                if(i!=tempGraphicsLayer.graphics.length-1)
+                                    onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"LineString","coordinates":'+ringCount+"}},";
+                                else
+                                    onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"LineString","coordinates":'+ringCount+"}}";
+                            }
+                        }
+                        onePolygon='{"type":"FeatureCollection", "features": ['+onePolygon +']}';
+                        DLayer = onePolygon;
+
+                        debugger;
+                    }
+
+                    //***************************************************************
+                    // called when sketchViewModel's update-complete or update-cancel
+                    // events are fired.
+                    //*************************************************************
+                    function updateGraphic(event) {
+                        event.graphic.geometry = event.geometry;
+                        tempGraphicsLayer.add(event.graphic);
+                        editGraphic = null;
+                    }
+
+                    // ************************************************************************************
+                    // set up logic to handle geometry update and reflect the update on "tempGraphicsLayer"
+                    // ************************************************************************************
+                    function setUpClickHandler() {
+                        view.on("click", function(event) {
+                            view.hitTest(event).then(function(response) {
+                                var results = response.results;
+                                if (results.length && results[results.length - 1]
+                                    .graphic) {
+                                    var name = new Array();
+                                    var a = "";
+                                    name = getAttributeName(results[results.length - 1].graphic);
+                                    for (var i = 0; i < name.length; i++) {
+                                        a = a + name[i] + ":" + results[results.length - 1].graphic.getAttribute(name[i]) + '\n';
+                                    }
+                                    alert(a);
+                                }
+                            });
+                        });
+                    }
+
+                    //*************************************
+                    // activate the sketch to create a point
+                    //*************************************
+                    var drawPointButton = document.getElementById("pointButton");
+                    drawPointButton.onclick = function() {
+                        // set the sketch to create a point geometry
+                        sketchViewModel.create("point");
+                        setActiveButton(this);
+                    };
+
+                    //****************************************
+                    // activate the sketch to create a polyline
+                    //****************************************
+                    var drawLineButton = document.getElementById("polylineButton");
+                    drawLineButton.onclick = function() {
+                        // set the sketch to create a polyline geometry
+                        sketchViewModel.create("polyline");
+                        setActiveButton(this);
+                    };
+
+                    //***************************************
+                    // activate the sketch to create a polygon
+                    //***************************************
+                    var drawPolygonButton = document.getElementById("polygonButton");
+                    drawPolygonButton.onclick = function() {
+                        // set the sketch to create a polygon geometry
+                        sketchViewModel.create("polygon");
+                        setActiveButton(this);
+                    };
+
+                    //***************************************
+                    // activate the sketch to create a rectangle
+                    //***************************************
+                    var drawRectangleButton = document.getElementById(
+                        "rectangleButton");
+                    drawRectangleButton.onclick = function() {
+                        // set the sketch to create a polygon geometry
+                        sketchViewModel.create("rectangle");
+                        setActiveButton(this);
+                    };
+
+                    //***************************************
+                    // activate the sketch to create a circle
+                    //***************************************
+
+
+                    //**************
+                    // reset button
+                    //**************
+                    var clearButton = document.getElementById("resetBtn");
+                    clearButton.onclick = function() {
+                        sketchViewModel.reset();
+                        tempGraphicsLayer.removeAll();
+                        tempGraphicsLayer1.removeAll();
+                        tempGraphicsLayer2.removeAll();
+                        setActiveButton();
+                    };
+                    var drawCircleButton = document.getElementById("circleButton");
+                    drawCircleButton.onclick = function() {
+                        // set the sketch to create a polygon geometry
+                        sketchViewModel.create("circle");
+                        setActiveButton(this);
+                    };
+
+                    function setActiveButton(selectedButton) {
+                        // focus the view to activate keyboard shortcuts for sketching
+                        view.focus();
+                        var elements = document.getElementsByClassName("active");
+                        for (var i = 0; i < elements.length; i++) {
+                            elements[i].classList.remove("active");
+                        }
+                        if (selectedButton) {
+                            selectedButton.classList.add("active");
+                        }
+                    }
+                    //**********************叠加或者包含时叠加attributes**************************
+                    function addAttribute(graphic, layer) {
+                        var graphics = new Array();
+                        var j = 0;
+                        for (var i = 0; i < layer.graphics.items.length; i++) {
+                            if (geometryEngine.intersects(graphic.geometry, layer.graphics.items[i].geometry) == true) {
+                                var intersectGraphic = new Graphic({
+                                    geometry: geometryEngine.intersect(graphic.geometry, layer.graphics.items[i].geometry),
+                                    symbol: layer.graphics.items[i].symbol
+                                });
+                                if (layer.title == "腐蚀") {
+                                    if (layer.graphics.items[i].getAttribute("name") == "腐蚀")
+                                        intersectGraphic.setAttribute("cname", layer.graphics.items[i].getAttribute("name"));
+                                    intersectGraphic.setAttribute("aid", graphic.getAttribute("aid"));
+                                    intersectGraphic.setAttribute("name", graphic.getAttribute("name"));
+                                    //	intersectGraphic.setAttribute("intersectname",layer.graphics.items[i].getAttribute("name"));
+                                } else if (layer.title == "损伤") {
+                                    if (layer.graphics.items[i].getAttribute("name") == "损伤")
+                                        intersectGraphic.setAttribute("dname", layer.graphics.items[i].getAttribute("name"));
+                                    intersectGraphic.setAttribute("aid", graphic.getAttribute("aid"));
+                                    intersectGraphic.setAttribute("name", graphic.getAttribute("name"));
+                                    //	intersectGraphic.setAttribute("intersectname",layer.graphics.items[i].getAttribute("name"));
+                                }
+                                graphics[j] = intersectGraphic;
+                                j++;
+                            } else if (geometryEngine.contains(graphic.geometry, layer.graphics.items[i].geometry) == true) {}
+                        }
+                        return graphics;
+                    }
+                    //************************************读取源attribute****************
+                    function readAttribute(graphic) {
+
+                    }
+
+                    function getAttributeName(graphic) {
+                        var name = new Array();
+                        name[0] = "aid";
+                        name[1] = "name";
+                        if (graphic.getAttribute("dname") != null) {
+                            name[2] = "dname";
+                        } else if (graphic.getAttribute("cname") != null) {
+                            name[2] = "cname";
+                        }
+                        return name;
+                    }
+                    
+                    function gpoint(perRings){
+                        var pointXy="";
+                        for(var points=0; points<perRings.length;points++)
+                            {
+                                if(points!=perRings.length-1)
+                                    pointXy=pointXy+"["+perRings[points][0]*100+","+perRings[points][1]*100+"]"+",";
+                                else
+                                    pointXy=pointXy+"["+perRings[points][0]*100+","+perRings[points][1]*100+"]";
+                            }
+                        return pointXy;
+                    }
+                    function grings(rings,points){
+                        var ring="";
+                        for(var ringi=0; ringi<rings.length;ringi++){
+                            if(ringi!=rings.length-1)
+                                ring = ring + "[" + points + "]" + ",";
+                            else
+                                ring = ring + "[" + points + "]";
+                        }
+                        return ring;
+                    }
+                    
+                });
+
+
+            });                            
+        }
+
+        function readtxt(selectedFile,map) {
+            i = i + 1;
+            var reader = new FileReader(); //这里是核心！！！读取操作就是由它完成的。
+            var name = selectedFile.name;
+            reader.readAsText(selectedFile, 'gb2312'); //读取文件的内容，注意编码方式
+            var polygonArray = new Array();
+            var polylineArray = new Array();
+            reader.onload = function() {
+                var obj = reader.result;
+                var json = JSON.parse(obj);
+                var i = 0,
+                    CountOfPolygon = 0,
+                    CountOfPolyline = 0,
+                    CountOfPolypoint = 0;
+                for (var jsoni in json.features) {
+                    i++;
+                    if(json.features[jsoni].geometry)
+                    if (json.features[jsoni].geometry.type == "Polygon") {
+                        var ringArray = new Array();
+                        for (var i1 = 0; i1 < json.features[jsoni].geometry.coordinates.length; i1++) {
+                            ringArray[i1] = new Array();
+                            for (var j = 0; j < json.features[jsoni].geometry.coordinates[i1].length; j++) {
+                                ringArray[i1][j] = new Array(2);
+                            }
+                        }
+
+                        for (var polygoni in json.features[jsoni].geometry.coordinates) {
+                            for (var polygonj in json.features[jsoni].geometry.coordinates[polygoni]) {
+                                for (var polygonk in json.features[jsoni].geometry.coordinates[polygoni][polygonj]) {
+                                    ringArray[polygoni][polygonj][polygonk] = json.features[jsoni].geometry.coordinates[polygoni][polygonj][polygonk]/100;
+                                }
+                            }
+                        }
+                        var polygon = {
+                            type: "polygon",
+                            rings: ringArray
+                        };
+                        polygonArray[CountOfPolygon] = polygon;
+                        CountOfPolygon++;
+                    } else if (json.features[jsoni].geometry.type == "LineString") {
+                        var pathsArray = new Array();
+                        for (var i1 = 0; i1 < json.features[jsoni].geometry.coordinates.length; i1++) {
+                            pathsArray[i1] = new Array();
+                        }
+                        for (var polylinei in json.features[jsoni].geometry.coordinates) {
+                            for (var polylinej in json.features[jsoni].geometry.coordinates[polylinei]) {
+                                pathsArray[polylinei][polylinej] = json.features[jsoni].geometry.coordinates[polylinei][polylinej]/100;
+                            }
+                        }
+                        var polygon = {
+                            type: "polyline",
+                            paths: pathsArray
+                        };
+                        polylineArray[CountOfPolyline] = polygon;
+                        CountOfPolyline++;
+                    } else if (json.features[jsoni].geometry.type == "Polypoint") {
+
+                    }   
+                }
+                 require([
+                "esri/views/MapView",
+                "esri/Map",
+                "esri/widgets/Sketch/SketchViewModel",
+                "esri/Graphic",
+                "esri/layers/GraphicsLayer",
+                "esri/layers/GroupLayer",
+                "esri/widgets/LayerList",
+                "esri/geometry/geometryEngine",
+                "dojo/domReady!"
+            ], function(
+                MapView, Map,
+                SketchViewModel, Graphic, GraphicsLayer, GroupLayer, LayerList, geometryEngine
+            ) {
+                var fillSymbol;
+                var lineSymbol;
+                if(name=="file.json")
+                    {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: [0, 191, 255, 1],
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [255, 0, 0, 1],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                    }
+                    else{
+                                       fillSymbol = {
+                    type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                    color: [0, 0, 0, 0],
+                    outline: { // autocasts as new SimpleLineSymbol()
+                        color: [255, 0, 0, 1],
+                        width: 1
+                    }
+                };
+                lineSymbol = {
+                    type: "simple-line", // autocasts as SimpleLineSymbol()
+                    color: [255, 0, 0],
+                    width: 1
+                }; 
+                    }
+
+                    var PolygonGraphic = new Array(); 
+                    for (var polygonxx in polygonArray) {
+                        var polygonGraphic = new Graphic({
+                            geometry: polygonArray[polygonxx],
+                            symbol: fillSymbol
+                        });
+                        PolygonGraphic[polygonxx] = polygonGraphic;
+                    }
+                    var PolylineGraphic = new Array();
+
+                    var layer = new GraphicsLayer({
+                        graphics: PolygonGraphic,
+                        title: "底图"
+                    });
+                    for (var polylinexx in polylineArray) {
+                        var polylineGraphic = new Graphic({
+                            geometry: polylineArray[polylinexx],
+                            symbol: lineSymbol
+                        });
+                        layer.add(polylineGraphic)
+                    }                    
+                    map.add(layer);
+                }
+            );
+            }
+        }
+                         
+
+
+        $(document).ready(function() {
+            //alert("start");
+            $("#import").click(function() { //点击导入按钮，使files触发点击事件，然后完成读取文件的操作。
+                $("#files").click();
+            });
+
+            $("#export").click(function() {
+                var content = DLayer;
+                var blob = new Blob([content], {
+                    type: "text/plain;charset=utf-8"
+                });
+                saveAs(blob, "file.json"); //saveAs(blob,filename) //仅限于chorme的下载目录里
+                //alert("export OK")
+            });
+        })
+    </script>
+    <div id="viewDiv">
+        <div id="topbar">
+            <button class="action-button esri-icon-blank-map-pin" id="pointButton" type="button" title="Draw point"></button>
+            <button class="action-button esri-icon-polyline" id="polylineButton" type="button" title="Draw polyline"></button>
+            <button class="action-button esri-icon-polygon" id="polygonButton" type="button" title="Draw polygon"></button>
+            <button class="action-button esri-icon-checkbox-unchecked" id="rectangleButton" type="button" title="Draw rectangle"></button>
+            <button class="action-button esri-icon-trash" id="resetBtn" type="button" title="Clear graphics"></button>
+        </div>
+    </div>
+</body>
+
+</html>
