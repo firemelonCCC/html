@@ -1,0 +1,23 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>js实现子窗口传值到父窗口--子页面</title>
+</head>
+<body>
+<input id="bt" type="button" onclick="setNewLinkValue();" value="更新父窗口的内容"/>
+<script>
+
+ var wholeValue;
+
+     function  setNewLinkValue(){
+
+        //之前有一个JS方法构造了wholeValue的值
+		wholeValue="1111111";
+        window.opener.document.getElementById("test").value+=wholeValue;//设置传递给父页面的值
+
+      }
+
+</script>
+</body>
+</html>

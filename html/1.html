@@ -1,0 +1,19 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>js实现子窗口传值到父窗口--父页面</title>
+</head>
+<body>
+<script>
+     function  getLink(){
+      window.open("2.html","newindow","width=800,height=500,toolbar=no,scrollbars=no");
+}
+function  getNewLinkValue(value){
+alert(value);//可以得到子页面设的值
+}
+</script>
+<input  type="button"  value="测试子页面调用"  onclick="getLink();"/>
+<input type ="text" id = "test">
+</body>
+</html>
