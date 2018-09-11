@@ -1,0 +1,21 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>child</title>
+    <meta charset="UTF-8">
+    <script language="javascript" type="text/javascript" src="js/jquery.min.js"></script>
+    <script language="javascript" type="text/javascript">
+        $(function() {
+            //在iframe子页面中查找父页面元素
+            alert($('#default', window.parent.document).html());
+            //在iframe中调用父页面中定义的变量
+            alert(parent.value);
+            //在iframe中调用父页面中定义的方法
+            parent.sayhello();
+        });
+    </script>
+</head>
+<body>
+    <div>iframe子页面内容</div>
+</body>
+</html>

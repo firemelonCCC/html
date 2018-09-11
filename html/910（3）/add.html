@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
+<title>添加</title>
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script>
+	 var autowrite=function(){
+	 	window.open("test.html",'newwindow'); 
+		var myDiv=document.getElementById("d1");
+		myDiv.innerText="456";
+		var myMs=document.getElementById("ms");
+		myMs.innerText="73C-S53-21-B-2";
+		var myMda=document.getElementById("mda");
+		myMda.innerText="789";
+		var myVstc=document.getElementById("vstc");
+		myVstc.innerText="VSTC0102";
+		var i=document.getElementById("d2").removeAttribute("hidden") ;
+
+	}
+</script>
+</head>
+<body>
+<div align="center"><img src="add.png" width="898" height="521" />
+  <table width="900" height="190" border="1">
+      <tr>
+        <td width="189" rowspan="5"> 
+          <div align="center">
+            <button onclick="autowrite()">位置选择</button>
+        </div></td>
+        <td width="160" ><div align="center">旧修理</div></td>
+        <td width="529"> <label id="d1"></label>&nbsp;</td>
+      </tr>
+    <tr id="d2" hidden="hidden">
+	   <td width="160" ><div align="center">旧修理</div></td>
+      <td ><label> 567</label>&nbsp;</td>
+    </tr>
+    <tr>
+      <td ><div align="center">ms</div></td>
+      <td > <label id="ms"></label>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><div align="center">mda</div></td>
+      <td> <label id="mda"></label>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><div align="center">vstc</div></td>
+      <td> <label id="vstc"></label>&nbsp;</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>
