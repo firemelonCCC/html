@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UFT-8">
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="FileSaver.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.8/esri/css/main.css">
+    <script src="dojo.js"></script>
+
+    <!--做图控制（只能在特定图层做图）
+    图层管理：在机号树下以类别命名图层
+    图层管理：读取文件时以类别定义id
+    -->
+
+    <style>
+        html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      font-family: verdana;
+    }
+
+    #topbar {
+      background: #fff;
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      padding: 10px;
+    }
+
+    .action-button {
+      font-size: 16px;
+      background-color: transparent;
+      border: 1px solid #D3D3D3;
+      color: #6e6e6e;
+      height: 32px;
+      width: 32px;
+      text-align: center;
+      box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-button:hover,
+    .action-button:focus {
+      background: #0079c1;
+      color: #e4e4e4;
+    }
+
+    .active {
+      background: #0079c1;
+      color: #e4e4e4;
+    }
+        
+    .black_overlay{
+display: none;
+position: absolute;
+top: 0%;
+left: 0%;
+width: 100%;
+height: 100%;
+background-color: black;
+z-index:1001;
+-moz-opacity: 0.8;
+opacity:.80;
+filter: alpha(opacity=80);
+}
+.white_content {
+display: none;
+position: absolute;
+top: 30%;
+left: 30%;
+width: 30%;
+height: 30%;
+border: 16px solid lightblue;
+background-color: white;
+z-index:1002;
+overflow: auto;
+}
+	</style>
+</head>
+
+<body>
+
+
+    <div>
+        <div>
+            <input type="file" id="files" style="display:none" multiple="multiple" onchange="fileimport();" />
+            <input type="button" id="import" value="导入" />
+
+            <input type="button" id="export" value="导出" />
+        </div>
+    </div>
+    <script>
+        var txtdata;
+        
+        var CadLayer="";
+        var DLayer="";
+        var VstcLayer="";
+        var MdaLayer="";
+        var MsLayer="";
+
+        function fileimport() {
+            var tempFile = "";
+            console.time(1);
+                        require([
+                "esri/views/MapView",
+                "esri/Map",
+                "esri/widgets/Sketch/SketchViewModel",
+                "esri/Graphic",
+                "esri/layers/GraphicsLayer",
+                "esri/layers/GroupLayer",
+                "esri/widgets/LayerList",
+                "esri/geometry/geometryEngine",
+                "dojo/domReady!"
+            ], function(
+                MapView, Map,
+                SketchViewModel, Graphic, GraphicsLayer, GroupLayer, LayerList, geometryEngine
+            ) {
+                let editGraphic;
+                var reportid;
+                var graphic = new Graphic();
+                var layergroup = new Array();
+
+                const map = new Map({
+                    spatialReference: {
+                        wkid: 4326
+                    }
+                });
+                var view = new MapView({
+                    container: "viewDiv",
+                    map: map,
+                    center: [0.049, 0.485],
+                    zoom: 1
+                });
+               for(var i = 0; i  < document.getElementById("files").files.length;i++) {
+                    var selectedFile = document.getElementById("files").files[i]; //获取读取的File对象        
+                    var name = selectedFile.name; //读取选中文件的文件名
+                    var size = selectedFile.size; //读取选中文件的大小
+                    console.log("文件名:" + name + "大小：" + size);       
+                    readtxt(selectedFile,map);
+                }    
+                console.timeEnd(1);
+                view.when(function() {
+                    
+                    var baseLayer = new GraphicsLayer();
+                    for(var layeri = 0; layeri<map.layers.items.length;layeri++)
+                        {
+                            if(map.layers.items[layeri].title=="底图")
+                                baseLayer = map.layers.items[layeri];
+                        }
+                    var DamageLayer = new GraphicsLayer();
+                    for(var layeri = 0;layeri<map.layers.items.length;layeri++)
+                    {   
+                        if(map.layers.items[layeri].title=="修理")
+                            DamageLayer = map.layers.items[layeri];
+                    }
+                    
+                    var mdaLayer = new GraphicsLayer();
+                    for(var layeri = 0;layeri<map.layers.items.length;layeri++)
+                    {   
+                        if(map.layers.items[layeri].title=="MDA")
+                            mdaLayer = map.layers.items[layeri];
+                    }                    
+                    
+                    var msLayer = new GraphicsLayer();
+                    for(var layeri = 0;layeri<map.layers.items.length;layeri++)
+                    {   
+                        if(map.layers.items[layeri].title=="MS")
+                            msLayer = map.layers.items[layeri];
+                    }
+                    
+                    var vstcLayer = new GraphicsLayer();
+                    for(var layeri = 0;layeri<map.layers.items.length;layeri++)
+                    {   
+                        if(map.layers.items[layeri].title=="VSTC")
+                            vstcLayer = map.layers.items[layeri];
+                    }                    
+                    
+                    var cadLayer = new GraphicsLayer();
+                    for(var layeri = 0;layeri<map.layers.items.length;layeri++)
+                    {   
+                        if(map.layers.items[layeri].title=="CAD")
+                            cadLayer = map.layers.items[layeri];
+                    }  
+                       DLayer = exportInfo(DamageLayer);
+                        CadLayer=exportInfo(cadLayer);
+                        VstcLayer=exportInfo(vstcLayer);
+                        MdaLayer=exportInfo(mdaLayer);
+                        MsLayer=exportInfo(msLayer);     
+                   // debugger;
+                    var layerList = new LayerList({
+                        view: view,
+                    });
+                    layerList.on("trigger-action", function(event) { //被触发
+
+                    });
+                    view.ui.add(layerList, "top-left");
+                    const sketchViewModel = new SketchViewModel({
+                        view: view,
+                        layer: baseLayer,
+                        pointSymbol: {
+                            type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                            style: "square",
+                            color: "#8A2BE2",
+                            size: "16px",
+                            outline: { // autocasts as new SimpleLineSymbol()
+                                color: [255, 255, 255],
+                                width: 3
+                            }
+                        },
+                        polylineSymbol: {
+                            type: "simple-line", // autocasts as new SimpleLineSymbol()
+                            color: "#8A2BE2",
+                            width: "4",
+                            style: "dash"
+                        },
+                        polygonSymbol: {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: "rgba(138,43,226, 0.8)",
+                            style: "solid",
+                            outline: {
+                                color: "white",
+                                width: 1
+                            }
+                        }
+                    });
+
+                    setUpClickHandler();
+
+                    // Listen to create-complete event to add a newly created graphic to view
+                    sketchViewModel.on("create-complete", addGraphic);
+                    sketchViewModel.on("update-complete", updateGraphic);
+                    sketchViewModel.on("update-cancel", updateGraphic);
+
+                    //*************************************************************
+                    // called when sketchViewModel's create-complete event is fired.
+                    //*************************************************************
+                    function addGraphic(event) {
+                        var symbol1;
+                        if (event.geometry.type == "polygon") {
+                            symbol1 = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: "rgba(153,0,255,0.8)",
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [255, 0, 0, 0],
+                            width: 1
+                              }
+
+                            };
+                            var graphic = new Graphic({
+                            geometry: event.geometry,
+                            symbol: symbol1
+                            });
+                        cadLayer.add(graphic);
+                        } else if(event.geometry.type == "polygon" && DamageLayer.visible == true&& cadLayer.visible == false){
+                             symbol1 = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: "rgba(0, 191, 255, 0.8)",
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [255, 0, 0, 0],
+                            width: 1
+                              }
+                            };
+                            var graphic = new Graphic({
+                            geometry: event.geometry,
+                            symbol: symbol1
+                        });
+                        DamageLayer.add(graphic);
+                        }
+                        console.time(1);
+                        var intersssects = new Array();
+                        var cc=0;
+                        for(var iii = 0; iii<baseLayer.graphics.items.length;iii++)
+                            {
+                                if (geometryEngine.intersects(event.geometry,baseLayer.graphics.items[iii].geometry ))
+                                   {intersssects[cc]=baseLayer.graphics.items[iii].geometry;
+                                       cc++;} //;
+                                 
+                            }
+                        console.log(intersssects);
+                        console.timeEnd(1);
+                        DLayer = exportInfo(DamageLayer);
+                        CadLayer=exportInfo(cadLayer);
+                        VstcLayer=exportInfo(vstcLayer);
+                        MdaLayer=exportInfo(mdaLayer);
+                        MsLayer=exportInfo(msLayer);                        
+
+                    }
+
+                    //***************************************************************
+                    // called when sketchViewModel's update-complete or update-cancel
+                    // events are fired.
+                    //*************************************************************
+                    function updateGraphic(event) {
+                        event.graphic.geometry = event.geometry;
+                        DamageLayer.add(event.graphic);
+                        editGraphic = null;
+                    }
+
+                    // ************************************************************************************
+                    // set up logic to handle geometry update and reflect the update on "DamageLayer"
+                    // ************************************************************************************
+                    function setUpClickHandler() {
+                        view.on("click", function(event) {
+                            view.hitTest(event).then(function(response) {
+                                var results = response.results;
+                                if(results[0].graphic.layer.title=="CAD")
+                                    ShowDiv('MyDiv','fade');
+                            });
+                        });
+                    }
+
+
+                    //***************************************
+                    // activate the sketch to create a polygon
+                    //***************************************
+                    var drawPolygonButton = document.getElementById("polygonButton");
+                    drawPolygonButton.onclick = function() {
+                        // set the sketch to create a polygon geometry
+                        sketchViewModel.create("polygon");
+                        setActiveButton(this);
+                    };
+
+                    //***************************************
+                    // activate the sketch to create a rectangle
+                    //***************************************
+                    var drawRectangleButton = document.getElementById(
+                        "rectangleButton");
+                    drawRectangleButton.onclick = function() {
+                        // set the sketch to create a polygon geometry
+                        sketchViewModel.create("rectangle");
+                        setActiveButton(this);
+                    };
+
+
+                    //**************
+                    // reset button
+                    //**************
+                    var clearButton = document.getElementById("resetBtn");
+                    clearButton.onclick = function() {
+                        sketchViewModel.reset();
+                        cadLayer.removeAll();
+                        setActiveButton();
+                        CadLayer=exportInfo(cadLayer);
+
+                    };
+                    function setActiveButton(selectedButton) {
+                        // focus the view to activate keyboard shortcuts for sketching
+                        view.focus();
+                        var elements = document.getElementsByClassName("active");
+                        for (var i = 0; i < elements.length; i++) {
+                            elements[i].classList.remove("active");
+                        }
+                        if (selectedButton) {
+                            selectedButton.classList.add("active");
+                        }
+                    }
+                    //**********************叠加或者包含时叠加attributes**************************
+                    function addAttribute(graphic, layer) {
+                        var graphics = new Array();
+                        var j = 0;
+                        for (var i = 0; i < layer.graphics.items.length; i++) {
+                            if (geometryEngine.intersects(graphic.geometry, layer.graphics.items[i].geometry) == true) {
+                                var intersectGraphic = new Graphic({
+                                    geometry: geometryEngine.intersect(graphic.geometry, layer.graphics.items[i].geometry),
+                                    symbol: layer.graphics.items[i].symbol
+                                });
+                                if (layer.title == "腐蚀") {
+                                    if (layer.graphics.items[i].getAttribute("name") == "腐蚀")
+                                        intersectGraphic.setAttribute("cname", layer.graphics.items[i].getAttribute("name"));
+                                    intersectGraphic.setAttribute("aid", graphic.getAttribute("aid"));
+                                    intersectGraphic.setAttribute("name", graphic.getAttribute("name"));
+                                    //	intersectGraphic.setAttribute("intersectname",layer.graphics.items[i].getAttribute("name"));
+                                } else if (layer.title == "损伤") {
+                                    if (layer.graphics.items[i].getAttribute("name") == "损伤")
+                                        intersectGraphic.setAttribute("dname", layer.graphics.items[i].getAttribute("name"));
+                                    intersectGraphic.setAttribute("aid", graphic.getAttribute("aid"));
+                                    intersectGraphic.setAttribute("name", graphic.getAttribute("name"));
+                                    //	intersectGraphic.setAttribute("intersectname",layer.graphics.items[i].getAttribute("name"));
+                                }
+                                graphics[j] = intersectGraphic;
+                                j++;
+                            } else if (geometryEngine.contains(graphic.geometry, layer.graphics.items[i].geometry) == true) {}
+                        }
+                        return graphics;
+                    }
+                    
+                        function gpoint(perRings){
+                        var pointXy="";
+                        for(var points=0; points<perRings.length;points++)
+                            {
+                                if(points!=perRings.length-1)
+                                    pointXy=pointXy+"["+perRings[points][0]*100+","+perRings[points][1]*100+"]"+",";
+                                else
+                                    pointXy=pointXy+"["+perRings[points][0]*100+","+perRings[points][1]*100+"]";
+                            }
+                        return pointXy;
+                    }
+                        function grings(rings,points){
+                        var ring="";
+                        for(var ringi=0; ringi<rings.length;ringi++){
+                            if(ringi!=rings.length-1)
+                                ring = ring + "[" + points + "]" + ",";
+                            else
+                                ring = ring + "[" + points + "]";
+                        }
+                        return ring;
+                    }
+                    
+                        function exportInfo(layer){
+                            var onePolygon="";
+                            for(var i=0;i<layer.graphics.items.length;i++){
+                                if(layer.graphics.items[i].geometry.type=="polygon"){
+                                    var pointXy="";
+                                    var ringCount="";
+                                    for(var j =0;j<layer.graphics.items[i].geometry.rings.length;j++){
+                                        pointXy = gpoint(layer.graphics.items[i].geometry.rings[j]);
+                                        ringCount = grings(layer.graphics.items[i].geometry.rings,pointXy);  
+                                    }
+
+                                    if(i!=layer.graphics.length-1)
+                                        onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"Polygon","coordinates":['+ringCount+"]}},";
+                                    else
+                                        onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"Polygon","coordinates":['+ringCount+"]}}";
+                                }
+                                if(layer.graphics.items[i].geometry.type=="polyline"){
+                                    var pointXy = gpoint(layer.graphics.items[i].geometry.paths[0]);
+                                    var ringCount = grings(layer.graphics.items[i].geometry.paths,pointXy);
+                                    if(i!=layer.graphics.length-1)
+                                        onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"LineString","coordinates":'+ringCount+"}},";
+                                    else
+                                        onePolygon=onePolygon+"\n"+'{"type":"Feature","geometry":{"type":"LineString","coordinates":'+ringCount+"}}";
+                                }
+                            }
+                            onePolygon='{"type":"FeatureCollection", "features": ['+onePolygon +']}';
+                            return onePolygon;
+
+                        }                        
+                        
+                        function intersectGraphic (graphic){
+                            var intersectGraphics = new Array();
+                            var i=0,j=0;
+                            while(i<map.layers.items.length&&map.layers.items[i].title!="CAD")
+                                {
+                                    var layer = map.layers.item[i];
+                                   for(j=0;j<layer.graphics.items.length;j++) if(geometryEngine.intersects(graphic.geometry,layers.graphics.items[i].geometry)==true){
+                                        
+                                    }
+                                    i++;
+                                }
+                        }
+                });
+
+
+            });                            
+        }
+
+        function readtxt(selectedFile,map) {
+            var reader = new FileReader(); //这里是核心！！！读取操作就是由它完成的。
+            var name = selectedFile.name;
+            reader.readAsText(selectedFile, 'gb2312'); //读取文件的内容，注意编码方式
+            var polygonArray = new Array();
+            var polylineArray = new Array();
+            reader.onload = function() {
+                var obj = reader.result;
+                var json = JSON.parse(obj);
+                var i = 0,
+                    CountOfPolygon = 0,
+                    CountOfPolyline = 0,
+                    CountOfPolypoint = 0;
+                for (var jsoni in json.features) {
+                    i++;
+                    if(json.features[jsoni].geometry)
+                    if (json.features[jsoni].geometry.type == "Polygon") {
+                        var ringArray = new Array();
+                        for (var i1 = 0; i1 < json.features[jsoni].geometry.coordinates.length; i1++) {
+                            ringArray[i1] = new Array();
+                            for (var j = 0; j < json.features[jsoni].geometry.coordinates[i1].length; j++) {
+                                ringArray[i1][j] = new Array(2);
+                            }
+                        }
+
+                        for (var polygoni in json.features[jsoni].geometry.coordinates) {
+                            for (var polygonj in json.features[jsoni].geometry.coordinates[polygoni]) {
+                                for (var polygonk in json.features[jsoni].geometry.coordinates[polygoni][polygonj]) {
+                                    ringArray[polygoni][polygonj][polygonk] = json.features[jsoni].geometry.coordinates[polygoni][polygonj][polygonk]/100;
+                                }
+                            }
+                        }
+                        var polygon = {
+                            type: "polygon",
+                            rings: ringArray
+                        };
+                        polygonArray[CountOfPolygon] = polygon;
+                        CountOfPolygon++;
+                    } else if (json.features[jsoni].geometry.type == "LineString") {
+                        var pathsArray = new Array();
+                        for (var i1 = 0; i1 < json.features[jsoni].geometry.coordinates.length; i1++) {
+                            pathsArray[i1] = new Array();
+                        }
+                        for (var polylinei in json.features[jsoni].geometry.coordinates) {
+                            for (var polylinej in json.features[jsoni].geometry.coordinates[polylinei]) {
+                                pathsArray[polylinei][polylinej] = json.features[jsoni].geometry.coordinates[polylinei][polylinej]/100;
+                            }
+                        }
+                        var polygon = {
+                            type: "polyline",
+                            paths: pathsArray
+                        };
+                        polylineArray[CountOfPolyline] = polygon;
+                        CountOfPolyline++;
+                    } else if (json.features[jsoni].geometry.type == "Polypoint") {
+
+                    }   
+                }
+                 require([
+                "esri/views/MapView",
+                "esri/Map",
+                "esri/widgets/Sketch/SketchViewModel",
+                "esri/Graphic",
+                "esri/layers/GraphicsLayer",
+                "esri/layers/GroupLayer",
+                "esri/widgets/LayerList",
+                "esri/geometry/geometryEngine",
+                "dojo/domReady!"
+            ], function(
+                MapView, Map,
+                SketchViewModel, Graphic, GraphicsLayer, GroupLayer, LayerList, geometryEngine
+            ) {
+                var fillSymbol;
+                var lineSymbol;
+                var layer;
+                var PolygonGraphic = new Array(); 
+                var PolylineGraphic = new Array();
+  
+                if(name=="file.json")//修理
+                    {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: [0, 191, 255, 0.8],
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [255, 0, 0, 0],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                        layer = new GraphicsLayer({
+                            graphics: PolygonGraphic,
+                            title: "修理",
+                            id:2
+                        });
+                        layer.visible=false;
+                }//修理
+               else if(name=="mda.json")//mda
+                   {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: [124, 252, 0, 0.8],
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [0, 0, 0, 0],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                        layer = new GraphicsLayer({
+                            graphics: PolygonGraphic,
+                            title: "MDA",
+                            id:3
+                        });
+                        layer.visible=false;                     
+                   }//mda
+                     
+                else if(name=="ms.json")//ms
+                   {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: [255, 255, 0, 0.8],
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [0, 0, 0, 0],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                        layer = new GraphicsLayer({
+                            graphics: PolygonGraphic,
+                            title: "MS",
+                            id:3
+                        });
+                        layer.visible=false;                     
+                   }//ms
+                else if(name=="vstc.json")//vstc
+                   {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: [178, 34, 34, 0.8],
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [0, 0, 0, 0],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                        layer = new GraphicsLayer({
+                            graphics: PolygonGraphic,
+                            title: "VSTC",
+                            id:3
+                        });
+                        layer.visible=false;                     
+                   }//vstc
+                else if(name == "demo_2_2.json")//cad
+                    {
+                        fillSymbol = {
+                            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                            color: "rgba(153,0,255,0.8)",
+                            outline: { // autocasts as new SimpleLineSymbol()
+                            color: [0, 0, 0, 0],
+                            width: 1
+                              }
+                        };
+                        lineSymbol = {
+                            type: "simple-line", // autocasts as SimpleLineSymbol()
+                            color: [255, 0, 0],
+                            width: 1
+                        };
+                        layer = new GraphicsLayer({
+                            graphics: PolygonGraphic,
+                            title: "CAD",
+                            id:4
+                        });
+                        layer.visible=false;    
+                    }//cad
+                else{
+                    fillSymbol = {
+                        type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                        color: [0, 0, 0, 0],
+                        outline: { // autocasts as new SimpleLineSymbol()
+                            color: [255, 0, 0, 1],
+                            width: 1
+                        }
+                    };
+                    lineSymbol = {
+                        type: "simple-line", // autocasts as SimpleLineSymbol()
+                        color: [255, 0, 0],
+                        width: 1
+                    }; 
+                    layer = new GraphicsLayer({
+                        graphics: PolygonGraphic,
+                        title: "底图",
+                        listMode:"hide",
+                        id:1
+                    });  
+                }//底图
+                     
+                     
+                if (polygonArray.length!=0){
+                for (var polygonxx in polygonArray) {
+                    var polygonGraphic = new Graphic({
+                          geometry: polygonArray[polygonxx],
+                          symbol: fillSymbol
+                     });
+                    //PolygonGraphic[polygonxx] = polygonGraphic;
+                    layer.add(polygonGraphic);
+                }}
+
+                if (polylineArray.length!=0){
+                for (var polylinexx in polylineArray) {
+                     var polylineGraphic = new Graphic({
+                         geometry: polylineArray[polylinexx],
+                         symbol: lineSymbol
+                      });
+                    layer.add(polylineGraphic);
+                }
+                }
+                map.add(layer,0);
+            });
+            }
+        }
+                         
+        function ShowDiv(show_div, bg_div) {
+            document.getElementById(show_div).style.display = 'block';
+            document.getElementById(bg_div).style.display = 'block';
+            var bgdiv = document.getElementById(bg_div);
+            bgdiv.style.width = document.body.scrollWidth;
+            // bgdiv.style.height = $(document).height();
+            $("#" + bg_div).height($(document).height());
+        };
+        //关闭弹出层
+        function CloseDiv(show_div, bg_div) {
+            document.getElementById(show_div).style.display = 'none';
+            document.getElementById(bg_div).style.display = 'none';
+        };
+
+        $(document).ready(function() {
+            //alert("start");
+            $("#import").click(function() { //点击导入按钮，使files触发点击事件，然后完成读取文件的操作。
+                $("#files").click();
+            });
+
+            $("#export").click(function() {
+                var content0 = CadLayer;
+                var content1 = DLayer;
+                var content2 = VstcLayer;
+                var content3 = MdaLayer;
+                var content4 = MsLayer;
+                var blob0 = new Blob([content0], {
+                    type: "text/plain;charset=utf-8"
+                });
+                var blob1 = new Blob([content1], {
+                    type: "text/plain;charset=utf-8"
+                });
+                var blob2= new Blob([content2], {
+                    type: "text/plain;charset=utf-8"
+                });
+                var blob3 = new Blob([content3], {
+                    type: "text/plain;charset=utf-8"
+                });
+                var blob4 = new Blob([content4], {
+                    type: "text/plain;charset=utf-8"
+                });                
+                saveAs(blob0, "cad.json"); //saveAs(blob,filename) //仅限于chorme的下载目录里
+                //alert("export OK")
+                saveAs(blob1, "file.json");
+                saveAs(blob2, "vstc.json");
+                saveAs(blob3, "mda.json");
+                saveAs(blob4, "ms.json");
+            });
+        })
+    </script>
+    <div  id="fade" class="black_overlay">
+    </div>
+    
+        <div id="MyDiv" class="white_content">
+        <div style="text-align: right; cursor: default; height: 40px;" id="move">
+            <span style="font-size: 16px;" onclick="CloseDiv('MyDiv','fade')">关闭</span>
+        </div>
+        <a href="damage.html" target="_blank">cad评估单</a>
+            <br>
+            <a href="eo.html" target="_blank">eo</a>
+    </div>
+    
+    <div id="viewDiv">
+        <div id="topbar">
+            <button class="action-button esri-icon-polygon" id="polygonButton" type="button" title="Draw polygon"></button>
+            <button class="action-button esri-icon-checkbox-unchecked" id="rectangleButton" type="button" title="Draw rectangle"></button>
+            <button class="action-button esri-icon-trash" id="resetBtn" type="button" title="Clear graphics"></button>
+        </div>
+    </div>
+
+</body>
+
+</html>
