@@ -157,47 +157,99 @@
                                     }
                                 }
                             });
+                            if(oneLayer.graphics.items.length==0)
+                                oneLayer.add(graphic);
+                            else
+                                IntersectCut(graphic,oneLayer);
 
-                                    IntersectCut(graphic);
-                            oneLayer.add(graphic);
                         }
                 }
                 
-                function IntersectCut(graphic){
+                function IntersectCut(graphic,layer1){
                     var intersectGraphic = new Graphic();
                     var i= oneLayer.graphics.items.length ; j = 0;
-                    var pointXy = new Array();
-                    {
+                   
                         for(j=0;j<i;j++)
-                            if(geometryEngine.intersects(graphic.geometry,oneLayer.graphics.items[j].geometry)==true){
-                                intersectGraphic = geometryEngine.intersect(graphic.geometry,oneLayer.graphics.items[j].geometry);
-                                gpoint(intersectGraphic.rings);
+                           {  if(geometryEngine.intersects(graphic.geometry,oneLayer.graphics.items[j].geometry)==true){
+                                var intersectgeometry = geometryEngine.intersect(graphic.geometry,oneLayer.graphics.items[j].geometry);
+                                intersectGraphic=new Graphic({
+                                    geometry: intersectgeometry,
+                                    simpol: {
+                                        type: "simple-fill",
+                                        color:"#ff006e",
+                                        outline:{
+                                            color: [0,0,0,0],
+                                            widty: 1
+                                        } 
+                                    }
+                                    
+                                });
+                                gpoint(intersectGraphic,graphic,layer1);
                             }
+                        else
+                            oneLayer.add(graphic);
                     }
                 }
-                function gpoint(perRings){
-                var pointXy=new Array;
-                for(var points=0; points<perRings.length;points++)
-                {
-                    pointXy[points]=perRings[points];
+                function gpoint(intersectGraphic,graphic,layer1){
+                    perRings=intersectGraphic.geometry.rings;
+                    var cutgeometry = new Array();
+                    var pointXy=new Array;
+                    var cutgraphic =new Graphic();
+                    var cutLinegeometry;            
+                    for(var points=0; points<perRings.length;points++)
+                    {
+                        pointXy[points]=perRings[points];
+                    }
+                    cutLinegeometry = new Polyline({
+                        paths: pointXy
+                    })        
+                    cutLine = Graphic({
+                        geometry: cutLinegeometry,
+                        symbol: {
+                            type: "simple-line",
+                            color: "#000",
+                            width: "2",
+                        }   
+                    });
+                    
+                    cutgeometry=geometryEngine.cut(graphic.geometry,cutLinegeometry);
+                    for(var count = 0 ; count < cutgeometry.length;count++)
+                        {
+                            if(!geometryEngine.equals(cutgeometry[count],intersectGraphic.geometry)){
+                                cutgraphic=new Graphic({
+                                    geometry: cutgeometry[count],
+                                    symbol: {
+                                        type: "simple-fill",
+                                        color: "#ff0e6e",
+                                        outline:{
+                                            color: [255,0,255,0.8],
+                                            width: 4
+                                        }
+                                    }
+                                })
+                                layer1.add(cutgraphic);
+                                
+                            }
+                            else
+                                {
+                                    cutgraphic=new Graphic({
+                                    geometry: cutgeometry[count],
+                                    symbol: {
+                                        type: "simple-fill",
+                                        color: "#0088ff",
+                                        outline:{
+                                            color: [255,111,255,0.8],
+                                            width: 1
+                                            }
+                                        }
+                                    })
+                                    layer1.add(cutgraphic);
+                                }
+                                
+                                
+                        }
+
                 }
-                
-                var polyLine = new Polyline({
-                    paths: pointXy,
-                    spatialReference: { wkid: 4326 }
-                })
-                
-                graphic = Graphic({
-                    geometry: polyLine,
-                    symbol: {
-                        type: "simple-line",
-                        color: "#000",
-                        width: "4",
-                        style: "dash",
-                    }   
-                });
-                oneLayer.add(graphic);
-            }
 
             });
 
